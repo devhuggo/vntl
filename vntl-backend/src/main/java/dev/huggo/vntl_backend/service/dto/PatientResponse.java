@@ -69,8 +69,17 @@ public class PatientResponse {
     @JsonProperty("aparelhoId")
     Long deviceId;
 
+    @JsonProperty("aparelhoTipo")
+    String deviceType;
+
+    @JsonProperty("aparelhoNumeroPatrimonio")
+    String deviceAssetNumber;
+
     @JsonProperty("profissionalResponsavelId")
     Long professionalResponsibleId;
+
+    @JsonProperty("profissionalResponsavelNome")
+    String professionalResponsibleName;
 
     @JsonProperty("observacoes")
     String observations;

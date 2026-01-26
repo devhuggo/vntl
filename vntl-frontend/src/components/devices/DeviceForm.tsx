@@ -5,6 +5,7 @@ import type { Aparelho, AparelhoRequest } from '../../types/devices.types';
 import { StatusAparelho as StatusAparelhoEnum } from '../../types/devices.types';
 import { useQuery } from '@tanstack/react-query';
 import { pacientService } from '../../services/pacient.service';
+import { formatDateToBR, formatDateToISO, applyDateMask } from '../../utils/formatters';
 
 interface DeviceFormProps {
   device?: Aparelho | null;
@@ -13,13 +14,17 @@ interface DeviceFormProps {
 }
 
 const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
-  const [formData, setFormData] = useState<AparelhoRequest>({
+  // Inicializa dataCompra no formato dd/mm/yyyy para exibição
+  const today = new Date();
+  const todayBR = formatDateToBR(today.toISOString().split('T')[0]);
+  
+  const [formData, setFormData] = useState<Omit<AparelhoRequest, 'dataCompra'> & { dataCompra: string }>({
     numeroPatrimonio: '',
     tipo: '',
     marca: '',
     modelo: '',
     numeroSerie: '',
-    dataCompra: new Date().toISOString().split('T')[0],
+    dataCompra: todayBR, // Armazena no formato dd/mm/yyyy
     status: StatusAparelhoEnum.ESTOQUE,
     observacoes: ''
   });
@@ -33,13 +38,14 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
 
   useEffect(() => {
     if (device) {
+      const dataCompraBR = formatDateToBR(device.dataCompra.split('T')[0]);
       setFormData({
         numeroPatrimonio: device.numeroPatrimonio,
         tipo: device.tipo,
         marca: device.marca || '',
         modelo: device.modelo || '',
         numeroSerie: device.numeroSerie || '',
-        dataCompra: device.dataCompra.split('T')[0],
+        dataCompra: dataCompraBR, // Armazena no formato dd/mm/yyyy
         status: device.status,
         pacienteId: device.pacienteId,
         observacoes: device.observacoes || ''
@@ -66,10 +72,17 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Converte data do formato dd/mm/yyyy para yyyy-mm-dd antes de enviar
+    const submitData: AparelhoRequest = {
+      ...formData,
+      dataCompra: formatDateToISO(formData.dataCompra) || formData.dataCompra
+    };
+    
     if (device) {
-      await updateMutation.mutateAsync(formData);
+      await updateMutation.mutateAsync(submitData);
     } else {
-      await createMutation.mutateAsync(formData);
+      await createMutation.mutateAsync(submitData);
     }
   };
 
@@ -78,6 +91,16 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
     setFormData(prev => ({
       ...prev,
       [name]: name === 'pacienteId' ? (value ? parseInt(value) : undefined) : value
+    }));
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const maskedValue = applyDateMask(rawValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      dataCompra: maskedValue
     }));
   };
 
@@ -145,15 +168,53 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
           </div>
 
           <div className="form-row">
-            <div className="form-group">
+              <div className="form-group">
               <label>Data de Compra *</label>
-              <input
-                type="date"
-                name="dataCompra"
-                value={formData.dataCompra}
-                onChange={handleChange}
-                required
-              />
+              <div className="date-input-wrapper">
+                <input
+                  type="text"
+                  name="dataCompra"
+                  value={formData.dataCompra}
+                  onChange={handleDateChange}
+                  placeholder="dd/mm/yyyy"
+                  maxLength={10}
+                  required
+                />
+                <input
+                  type="date"
+                  id="date-picker-dataCompra"
+                  className="date-picker-hidden"
+                  value={formData.dataCompra ? formatDateToISO(formData.dataCompra) : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const brDate = formatDateToBR(e.target.value);
+                      setFormData(prev => ({
+                        ...prev,
+                        dataCompra: brDate
+                      }));
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="date-picker-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const dateInput = document.getElementById('date-picker-dataCompra') as HTMLInputElement;
+                    if (dateInput) {
+                      if (typeof dateInput.showPicker === 'function') {
+                        dateInput.showPicker();
+                      } else {
+                        dateInput.focus();
+                        dateInput.click();
+                      }
+                    }
+                  }}
+                  title="Selecionar data"
+                >
+                  📅
+                </button>
+              </div>
             </div>
 
             <div className="form-group">

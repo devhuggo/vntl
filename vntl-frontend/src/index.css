@@ -415,6 +415,51 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+.date-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.date-input-wrapper input[type="text"] {
+  padding-right: 2.5rem;
+  flex: 1;
+}
+
+.date-picker-hidden {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.date-picker-btn {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  z-index: 3;
+}
+
+.date-picker-btn:hover {
+  transform: scale(1.1);
+}
+
+.date-picker-btn:active {
+  transform: scale(0.95);
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

@@ -36,7 +36,7 @@ export interface Pacient {
   dataUltimaVisita?: string;
   dataProximaVisita?: string;
   aparelhoId?: number;
-  aparelhoNumeroPatrimonio?: string;
+  aparelhoTipo?: string;
   profissionalResponsavelId?: number;
   profissionalResponsavelNome?: string;
   observacoes?: string;

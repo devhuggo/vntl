@@ -5,6 +5,7 @@ import { deviceService } from '../../services/device.service';
 import { professionalService } from '../../services/professional.service';
 import type { Pacient, PacientRequest } from '../../types/pacient.types';
 import { PacientStatus as PacientStatusEnum, ContractType } from '../../types/pacient.types';
+import { applyCPFMask, validateCPF, applyPhoneMask, validatePhone, removeFormatting, formatDateToBR, formatDateToISO, applyDateMask } from '../../utils/formatters';
 
 interface PacientFormProps {
   pacient?: Pacient | null;
@@ -34,6 +35,9 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
     profissionalResponsavelId: undefined,
     observacoes: ''
   });
+  const [cpfError, setCpfError] = useState<string>('');
+  const [telefoneError, setTelefoneError] = useState<string>('');
+  const [telefoneSecundarioError, setTelefoneSecundarioError] = useState<string>('');
 
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
@@ -52,7 +56,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
       setFormData({
         nome: pacient.nome,
         cpf: pacient.cpf,
-        dataNascimento: pacient.dataNascimento?.split('T')[0] || '',
+        dataNascimento: formatDateToBR(pacient.dataNascimento?.split('T')[0]),
         telefone: pacient.telefone || '',
         telefoneSecundario: pacient.telefoneSecundario || '',
         email: pacient.email || '',
@@ -65,7 +69,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
         enderecoCep: pacient.enderecoCep || '',
         tipoContrato: pacient.tipoContrato,
         status: pacient.status,
-        dataProximaVisita: pacient.dataProximaVisita?.split('T')[0] || '',
+        dataProximaVisita: formatDateToBR(pacient.dataProximaVisita?.split('T')[0]),
         aparelhoId: pacient.aparelhoId,
         profissionalResponsavelId: pacient.profissionalResponsavelId,
         observacoes: pacient.observacoes || ''
@@ -92,10 +96,39 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Valida CPF antes de submeter
+    if (!validateCPF(formData.cpf)) {
+      setCpfError('CPF deve conter 11 dígitos');
+      return;
+    }
+    
+    // Valida telefones antes de submeter
+    if (formData.telefone && !validatePhone(formData.telefone)) {
+      setTelefoneError('Telefone deve conter 10 ou 11 dígitos');
+      return;
+    }
+    
+    if (formData.telefoneSecundario && !validatePhone(formData.telefoneSecundario)) {
+      setTelefoneSecundarioError('Telefone deve conter 10 ou 11 dígitos');
+      return;
+    }
+    
+    setCpfError('');
+    setTelefoneError('');
+    setTelefoneSecundarioError('');
+    
+    // Converte datas do formato dd/mm/yyyy para yyyy-mm-dd antes de enviar
+    const submitData = {
+      ...formData,
+      dataNascimento: formData.dataNascimento ? formatDateToISO(formData.dataNascimento) : '',
+      dataProximaVisita: formData.dataProximaVisita ? formatDateToISO(formData.dataProximaVisita) : ''
+    };
+    
     if (pacient) {
-      await updateMutation.mutateAsync(formData);
+      await updateMutation.mutateAsync(submitData);
     } else {
-      await createMutation.mutateAsync(formData);
+      await createMutation.mutateAsync(submitData);
     }
   };
 
@@ -108,6 +141,65 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
         : value
     }));
   };
+
+  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const maskedValue = applyCPFMask(rawValue);
+    
+    // Remove formatação para armazenar apenas números
+    const numbersOnly = removeFormatting(maskedValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      cpf: numbersOnly
+    }));
+
+    // Validação em tempo real
+    if (numbersOnly.length > 0 && numbersOnly.length < 11) {
+      setCpfError('CPF deve conter 11 dígitos');
+    } else if (numbersOnly.length === 11) {
+      setCpfError('');
+    } else {
+      setCpfError('');
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'telefone' | 'telefoneSecundario') => {
+    const rawValue = e.target.value;
+    const maskedValue = applyPhoneMask(rawValue);
+    
+    // Remove formatação para armazenar apenas números
+    const numbersOnly = removeFormatting(maskedValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: numbersOnly
+    }));
+
+    // Validação em tempo real
+    const errorSetter = fieldName === 'telefone' ? setTelefoneError : setTelefoneSecundarioError;
+    
+    if (numbersOnly.length > 0 && numbersOnly.length < 10) {
+      errorSetter('Telefone deve conter 10 ou 11 dígitos');
+    } else if (numbersOnly.length === 10 || numbersOnly.length === 11) {
+      errorSetter('');
+    } else if (numbersOnly.length > 11) {
+      errorSetter('Telefone deve conter no máximo 11 dígitos');
+    } else {
+      errorSetter('');
+    }
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'dataNascimento' | 'dataProximaVisita') => {
+    const rawValue = e.target.value;
+    const maskedValue = applyDateMask(rawValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: maskedValue
+    }));
+  };
+
 
   const availableDevices = devices.filter(d => 
     d.status === 'ESTOQUE' || d.id === formData.aparelhoId
@@ -140,21 +232,64 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
                 <input
                   type="text"
                   name="cpf"
-                  value={formData.cpf}
-                  onChange={handleChange}
-                  placeholder="00000000000"
+                  value={applyCPFMask(formData.cpf)}
+                  onChange={handleCPFChange}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
                   required
                 />
+                {cpfError && 
+                  <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                    {cpfError}
+                  </span>}
               </div>
 
               <div className="form-group">
                 <label>Data de Nascimento</label>
-                <input
-                  type="date"
-                  name="dataNascimento"
-                  value={formData.dataNascimento}
-                  onChange={handleChange}
-                />
+                <div className="date-input-wrapper">
+                  <input
+                    type="text"
+                    name="dataNascimento"
+                    value={formData.dataNascimento}
+                    onChange={(e) => handleDateChange(e, 'dataNascimento')}
+                    placeholder="dd/mm/yyyy"
+                    maxLength={10}
+                  />
+                  <input
+                    type="date"
+                    id="date-picker-dataNascimento"
+                    className="date-picker-hidden"
+                    value={formData.dataNascimento ? formatDateToISO(formData.dataNascimento) : ''}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const brDate = formatDateToBR(e.target.value);
+                        setFormData(prev => ({
+                          ...prev,
+                          dataNascimento: brDate
+                        }));
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="date-picker-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const dateInput = document.getElementById('date-picker-dataNascimento') as HTMLInputElement;
+                      if (dateInput) {
+                        if (typeof dateInput.showPicker === 'function') {
+                          dateInput.showPicker();
+                        } else {
+                          dateInput.focus();
+                          dateInput.click();
+                        }
+                      }
+                    }}
+                    title="Selecionar data"
+                  >
+                    📅
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -164,10 +299,16 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
                 <input
                   type="tel"
                   name="telefone"
-                  value={formData.telefone}
-                  onChange={handleChange}
+                  value={applyPhoneMask(formData.telefone)}
+                  onChange={(e) => handlePhoneChange(e, 'telefone')}
+                  placeholder="(00) 00000-0000"
+                  maxLength={15}
                   required
                 />
+                {telefoneError && 
+                  <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                    {telefoneError}
+                  </span>}
               </div>
 
               <div className="form-group">
@@ -175,9 +316,15 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
                 <input
                   type="tel"
                   name="telefoneSecundario"
-                  value={formData.telefoneSecundario}
-                  onChange={handleChange}
+                  value={applyPhoneMask(formData.telefoneSecundario)}
+                  onChange={(e) => handlePhoneChange(e, 'telefoneSecundario')}
+                  placeholder="(00) 00000-0000"
+                  maxLength={15}
                 />
+                {telefoneSecundarioError && 
+                  <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                    {telefoneSecundarioError}
+                  </span>}
               </div>
 
               <div className="form-group">
@@ -314,12 +461,50 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
 
               <div className="form-group">
                 <label>Data da Próxima Visita</label>
-                <input
-                  type="date"
-                  name="dataProximaVisita"
-                  value={formData.dataProximaVisita}
-                  onChange={handleChange}
-                />
+                <div className="date-input-wrapper">
+                  <input
+                    type="text"
+                    name="dataProximaVisita"
+                    value={formData.dataProximaVisita}
+                    onChange={(e) => handleDateChange(e, 'dataProximaVisita')}
+                    placeholder="dd/mm/yyyy"
+                    maxLength={10}
+                  />
+                  <input
+                    type="date"
+                    id="date-picker-dataProximaVisita"
+                    className="date-picker-hidden"
+                    value={formData.dataProximaVisita ? formatDateToISO(formData.dataProximaVisita) : ''}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const brDate = formatDateToBR(e.target.value);
+                        setFormData(prev => ({
+                          ...prev,
+                          dataProximaVisita: brDate
+                        }));
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="date-picker-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const dateInput = document.getElementById('date-picker-dataProximaVisita') as HTMLInputElement;
+                      if (dateInput) {
+                        if (typeof dateInput.showPicker === 'function') {
+                          dateInput.showPicker();
+                        } else {
+                          dateInput.focus();
+                          dateInput.click();
+                        }
+                      }
+                    }}
+                    title="Selecionar data"
+                  >
+                    📅
+                  </button>
+                </div>
               </div>
             </div>
 

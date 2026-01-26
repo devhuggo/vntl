@@ -135,7 +135,7 @@ const PacientList = () => {
                       {getStatusLabel(patient.status)}
                     </span>
                   </td>
-                  <td>{patient.aparelhoNumeroPatrimonio || '-'}</td>
+                  <td>{patient.aparelhoTipo || '-'}</td>
                   <td>{patient.profissionalResponsavelNome || '-'}</td>
                   <td>
                     {patient.dataUltimaVisita 

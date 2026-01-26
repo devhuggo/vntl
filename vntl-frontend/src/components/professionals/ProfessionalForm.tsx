@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { professionalService } from '../../services/professional.service';
 import type { Professional, ProfessionalRequest } from '../../types/professional.types';
+import { applyCPFMask, validateCPF, applyPhoneMask, validatePhone, removeFormatting } from '../../utils/formatters';
 
 interface ProfessionalFormProps {
   professional?: Professional | null;
@@ -19,6 +20,9 @@ const ProfessionalForm = ({ professional, onClose, onSuccess }: ProfessionalForm
     ativo: true,
     observacoes: ''
   });
+  const [cpfError, setCpfError] = useState<string>('');
+  const [telefoneError, setTelefoneError] = useState<string>('');
+  const [telefoneSecundarioError, setTelefoneSecundarioError] = useState<string>('');
 
   const queryClient = useQueryClient();
 
@@ -55,6 +59,28 @@ const ProfessionalForm = ({ professional, onClose, onSuccess }: ProfessionalForm
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Valida CPF antes de submeter
+    if (!validateCPF(formData.cpf)) {
+      setCpfError('CPF deve conter 11 dígitos');
+      return;
+    }
+    
+    // Valida telefones antes de submeter
+    if (formData.telefone && !validatePhone(formData.telefone)) {
+      setTelefoneError('Telefone deve conter 10 ou 11 dígitos');
+      return;
+    }
+    
+    if (formData.telefoneSecundario && !validatePhone(formData.telefoneSecundario)) {
+      setTelefoneSecundarioError('Telefone deve conter 10 ou 11 dígitos');
+      return;
+    }
+    
+    setCpfError('');
+    setTelefoneError('');
+    setTelefoneSecundarioError('');
+    
     if (professional) {
       await updateMutation.mutateAsync(formData);
     } else {
@@ -68,6 +94,54 @@ const ProfessionalForm = ({ professional, onClose, onSuccess }: ProfessionalForm
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
+  };
+
+  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const maskedValue = applyCPFMask(rawValue);
+    
+    // Remove formatação para armazenar apenas números
+    const numbersOnly = removeFormatting(maskedValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      cpf: numbersOnly
+    }));
+
+    // Validação em tempo real
+    if (numbersOnly.length > 0 && numbersOnly.length < 11) {
+      setCpfError('CPF deve conter 11 dígitos');
+    } else if (numbersOnly.length === 11) {
+      setCpfError('');
+    } else {
+      setCpfError('');
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'telefone' | 'telefoneSecundario') => {
+    const rawValue = e.target.value;
+    const maskedValue = applyPhoneMask(rawValue);
+    
+    // Remove formatação para armazenar apenas números
+    const numbersOnly = removeFormatting(maskedValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: numbersOnly
+    }));
+
+    // Validação em tempo real
+    const errorSetter = fieldName === 'telefone' ? setTelefoneError : setTelefoneSecundarioError;
+    
+    if (numbersOnly.length > 0 && numbersOnly.length < 10) {
+      errorSetter('Telefone deve conter 10 ou 11 dígitos');
+    } else if (numbersOnly.length === 10 || numbersOnly.length === 11) {
+      errorSetter('');
+    } else if (numbersOnly.length > 11) {
+      errorSetter('Telefone deve conter no máximo 11 dígitos');
+    } else {
+      errorSetter('');
+    }
   };
 
   return (
@@ -95,11 +169,16 @@ const ProfessionalForm = ({ professional, onClose, onSuccess }: ProfessionalForm
               <input
                 type="text"
                 name="cpf"
-                value={formData.cpf}
-                onChange={handleChange}
-                placeholder="00000000000"
+                value={applyCPFMask(formData.cpf)}
+                onChange={handleCPFChange}
+                placeholder="000.000.000-00"
+                maxLength={14}
                 required
               />
+              {cpfError && 
+              <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                {cpfError}
+                </span>}
             </div>
 
             <div className="form-group">
@@ -121,9 +200,15 @@ const ProfessionalForm = ({ professional, onClose, onSuccess }: ProfessionalForm
               <input
                 type="tel"
                 name="telefone"
-                value={formData.telefone}
-                onChange={handleChange}
+                value={applyPhoneMask(formData.telefone)}
+                onChange={(e) => handlePhoneChange(e, 'telefone')}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
               />
+              {telefoneError && 
+                <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                  {telefoneError}
+                </span>}
             </div>
 
             <div className="form-group">
@@ -131,9 +216,15 @@ const ProfessionalForm = ({ professional, onClose, onSuccess }: ProfessionalForm
               <input
                 type="tel"
                 name="telefoneSecundario"
-                value={formData.telefoneSecundario}
-                onChange={handleChange}
+                value={applyPhoneMask(formData.telefoneSecundario)}
+                onChange={(e) => handlePhoneChange(e, 'telefoneSecundario')}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
               />
+              {telefoneSecundarioError && 
+                <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                  {telefoneSecundarioError}
+                </span>}
             </div>
           </div>
 

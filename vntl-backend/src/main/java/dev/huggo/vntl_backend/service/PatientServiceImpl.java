@@ -7,13 +7,14 @@ import dev.huggo.vntl_backend.repository.PatientRepository;
 import dev.huggo.vntl_backend.service.dto.PatientRequest;
 import dev.huggo.vntl_backend.service.dto.PatientResponse;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,16 +71,39 @@ public class PatientServiceImpl implements PatientService {
     @Override
     @Transactional(readOnly = true)
     public List<PatientResponse> listAll(String status) {
+        List<Object[]> patientIdsWithNames;
+        
         if (status == null || status.isBlank()) {
-            return patientRepository.findAll().stream()
-                    .map(this::toResponse)
-                    .collect(Collectors.toList());
+            patientIdsWithNames = patientRepository.findAllPatientIdsWithProfessionalNames();
+        } else {
+            PatientStatus parsedStatus = PatientStatus.valueOf(status.toUpperCase(Locale.ROOT));
+            patientIdsWithNames = patientRepository.findPatientIdsWithProfessionalNamesByStatus(parsedStatus.name());
         }
 
-        PatientStatus parsedStatus = PatientStatus.valueOf(status.toUpperCase(Locale.ROOT));
-        return patientRepository.findByStatus(parsedStatus, PageRequest.of(0, Integer.MAX_VALUE))
-                .stream()
-                .map(this::toResponse)
+        // Criar mapas de patientId -> professionalName e patientId -> deviceType
+        Map<Long, String> professionalNamesMap = new HashMap<>();
+        Map<Long, String> deviceTypesMap = new HashMap<>();
+        List<Long> patientIds = patientIdsWithNames.stream()
+                .map(result -> {
+                    Long patientId = ((Number) result[0]).longValue();
+                    String professionalName = result[1] != null ? (String) result[1] : null;
+                    String deviceType = result[2] != null ? (String) result[2] : null;
+                    professionalNamesMap.put(patientId, professionalName);
+                    deviceTypesMap.put(patientId, deviceType);
+                    return patientId;
+                })
+                .collect(Collectors.toList());
+
+        // Buscar todos os pacientes em uma única query (batch)
+        List<Patient> patients = patientRepository.findAllById(patientIds);
+
+        // Mapear pacientes para responses com os nomes dos profissionais e tipos dos equipamentos
+        return patients.stream()
+                .map(patient -> {
+                    String professionalName = professionalNamesMap.get(patient.getId());
+                    String deviceType = deviceTypesMap.get(patient.getId());
+                    return toResponse(patient, professionalName, deviceType);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -125,6 +149,10 @@ public class PatientServiceImpl implements PatientService {
     }
 
     private PatientResponse toResponse(Patient patient) {
+        return toResponse(patient, null, null);
+    }
+
+    private PatientResponse toResponse(Patient patient, String professionalName, String deviceType) {
         return PatientResponse.builder()
                 .id(patient.getId())
                 .name(patient.getName())
@@ -146,7 +174,9 @@ public class PatientServiceImpl implements PatientService {
                 .lastVisitDate(patient.getLastVisitDate())
                 .nextVisitDate(patient.getNextVisitDate())
                 .deviceId(patient.getDeviceId())
+                .deviceType(deviceType)
                 .professionalResponsibleId(patient.getProfessionalResponsibleId())
+                .professionalResponsibleName(professionalName)
                 .observations(patient.getObservations())
                 .build();
     }
