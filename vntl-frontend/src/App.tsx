@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import DevicesPage from './pages/DevicesPage';
 import PatientsPage from './pages/PatientsPage';
 import ProfessionalsPage from './pages/ProfessionalsPage';
+import VisitsPage from './pages/VisitsPage';
 import './App.css';
 
 function App() {
@@ -61,6 +62,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <ProfessionalsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/visits"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <VisitsPage />
                 </Layout>
               </ProtectedRoute>
             }

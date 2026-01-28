@@ -10,6 +10,7 @@ const Sidebar = () => {
     { path: '/devices', label: 'Aparelhos', icon: '🏥' },
     { path: '/patients', label: 'Pacientes', icon: '👥' },
     { path: '/professionals', label: 'Profissionais', icon: '👨‍⚕️' },
+    { path: '/visits', label: 'Visitas', icon: '📅' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

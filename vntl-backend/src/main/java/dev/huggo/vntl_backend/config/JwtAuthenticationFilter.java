@@ -51,20 +51,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        // if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-        //     String token = authHeader.substring(7);
-        //     // Simplified: accept any token and set an authenticated user based on it.
-        //     UserDetails userDetails = User.withUsername(token)
-        //             .password("")
-        //             .authorities("ROLE_ADMIN")
-        //             .build();
-
-        //     UsernamePasswordAuthenticationToken authentication =
-        //             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        //     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        //     SecurityContextHolder.getContext().setAuthentication(authentication);
-        // }
-
         filterChain.doFilter(request, response);
     }
 }
