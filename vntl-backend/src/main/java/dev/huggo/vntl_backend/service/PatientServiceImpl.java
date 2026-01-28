@@ -1,8 +1,10 @@
 package dev.huggo.vntl_backend.service;
 
 import dev.huggo.vntl_backend.domain.ContractType;
+import dev.huggo.vntl_backend.domain.DeviceStatus;
 import dev.huggo.vntl_backend.domain.Patient;
 import dev.huggo.vntl_backend.domain.PatientStatus;
+import dev.huggo.vntl_backend.repository.DeviceRepository;
 import dev.huggo.vntl_backend.repository.PatientRepository;
 import dev.huggo.vntl_backend.service.dto.PatientRequest;
 import dev.huggo.vntl_backend.service.dto.PatientResponse;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PatientServiceImpl implements PatientService {
 
     private final PatientRepository patientRepository;
+    private final DeviceRepository deviceRepository;
 
     @Override
     @Transactional
@@ -54,8 +57,14 @@ public class PatientServiceImpl implements PatientService {
                     throw new IllegalArgumentException("CPF already exists");
                 });
 
+        Long previousDeviceId = patient.getDeviceId();
+        Long newDeviceId = request.getDeviceId();
+
         applyRequestToEntity(request, patient);
         Patient saved = patientRepository.save(patient);
+
+        // Atualiza o status do aparelho de acordo com a nova vinculação
+        updateDeviceAssociation(previousDeviceId, newDeviceId);
         log.info("Updated patient id={}", saved.getId());
         return toResponse(saved);
     }
@@ -112,6 +121,12 @@ public class PatientServiceImpl implements PatientService {
     public void delete(Long id) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+
+        // Se o paciente possui um aparelho vinculado, devolve-o para o estoque
+        if (patient.getDeviceId() != null) {
+            updateDeviceAssociation(patient.getDeviceId(), null);
+        }
+
         patientRepository.delete(patient);
         log.info("Deleted patient id={}", id);
     }
@@ -146,6 +161,32 @@ public class PatientServiceImpl implements PatientService {
         patient.setDeviceId(request.getDeviceId());
         patient.setProfessionalResponsibleId(request.getProfessionalResponsibleId());
         patient.setObservations(request.getObservations());
+    }
+
+    /**
+     * Atualiza o status dos aparelhos ao alterar o vínculo com o paciente.
+     *
+     * - Se {@code previousDeviceId} não for nulo e for diferente de {@code newDeviceId},
+     *   o aparelho anterior volta para o status ESTOQUE.
+     * - Se {@code newDeviceId} não for nulo e for diferente de {@code previousDeviceId},
+     *   o novo aparelho passa para o status EM_USO.
+     */
+    private void updateDeviceAssociation(Long previousDeviceId, Long newDeviceId) {
+        if (previousDeviceId != null && !previousDeviceId.equals(newDeviceId)) {
+            deviceRepository.findById(previousDeviceId)
+                    .ifPresent(device -> {
+                        device.setStatus(DeviceStatus.ESTOQUE);
+                        deviceRepository.save(device);
+                    });
+        }
+
+        if (newDeviceId != null && !newDeviceId.equals(previousDeviceId)) {
+            deviceRepository.findById(newDeviceId)
+                    .ifPresent(device -> {
+                        device.setStatus(DeviceStatus.EM_USO);
+                        deviceRepository.save(device);
+                    });
+        }
     }
 
     private PatientResponse toResponse(Patient patient) {

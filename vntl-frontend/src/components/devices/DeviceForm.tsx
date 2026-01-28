@@ -237,24 +237,6 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
             </div>
           </div>
 
-          {formData.status === StatusAparelhoEnum.EM_USO && (
-            <div className="form-group">
-              <label>Paciente</label>
-              <select
-                name="pacienteId"
-                value={formData.pacienteId || ''}
-                onChange={handleChange}
-              >
-                <option value="">Nenhum</option>
-                {patients.map(patient => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.nome} - {patient.cpf}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div className="form-group">
             <label>Observações</label>
             <textarea

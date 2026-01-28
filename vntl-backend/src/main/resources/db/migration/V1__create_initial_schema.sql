@@ -111,4 +111,4 @@ CREATE INDEX idx_visits_date ON visits(visit_date);
 
 -- Default admin user (password: admin123)
 INSERT INTO users (username, password, name, email, role) VALUES 
-('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Administrator', 'admin@vntl.com', 'ROLE_ADMIN');
+('admin', '$2a$10$XNq9whoMBKICfspt8SekjeYcLiC0SN4K1hje5xOdYlYlTRxSrdzyi', 'Administrator', 'admin@vntl.com', 'ROLE_ADMIN');
