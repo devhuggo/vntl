@@ -169,3 +169,37 @@ export const applyDateMask = (value: string): string => {
     return `${limitedNumbers.slice(0, 2)}/${limitedNumbers.slice(2, 4)}/${limitedNumbers.slice(4, 8)}`;
   }
 };
+
+/**
+ * Aplica máscara de CEP (00000-000)
+ * @param value - Valor a ser formatado
+ * @returns Valor formatado com máscara de CEP
+ */
+export const applyCEPMask = (value: string | undefined): string => {
+  if (!value) return '';
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '');
+
+  // Limita a 8 dígitos
+  const limitedNumbers = numbers.slice(0, 8);
+
+  if (limitedNumbers.length === 0) return '';
+
+  // Aplica a máscara progressivamente
+  if (limitedNumbers.length <= 5) {
+    return limitedNumbers;
+  }
+
+  return `${limitedNumbers.slice(0, 5)}-${limitedNumbers.slice(5)}`;
+};
+
+/**
+ * Valida CEP verificando se contém exatamente 8 dígitos
+ * @param cep - CEP a ser validado (pode conter formatação)
+ * @returns true se o CEP contém 8 dígitos, false caso contrário. Retorna true se o CEP estiver vazio (opcional)
+ */
+export const validateCEP = (cep: string | undefined): boolean => {
+  if (!cep) return true;
+  const numbers = cep.replace(/\D/g, '');
+  return numbers.length === 8;
+};

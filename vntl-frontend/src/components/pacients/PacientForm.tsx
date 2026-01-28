@@ -5,7 +5,7 @@ import { deviceService } from '../../services/device.service';
 import { professionalService } from '../../services/professional.service';
 import type { Pacient, PacientRequest } from '../../types/pacient.types';
 import { PacientStatus as PacientStatusEnum, ContractType } from '../../types/pacient.types';
-import { applyCPFMask, validateCPF, applyPhoneMask, validatePhone, removeFormatting, formatDateToBR, formatDateToISO, applyDateMask } from '../../utils/formatters';
+import { applyCPFMask, validateCPF, applyPhoneMask, validatePhone, removeFormatting, formatDateToBR, formatDateToISO, applyDateMask, applyCEPMask, validateCEP } from '../../utils/formatters';
 
 interface PacientFormProps {
   pacient?: Pacient | null;
@@ -38,6 +38,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
   const [cpfError, setCpfError] = useState<string>('');
   const [telefoneError, setTelefoneError] = useState<string>('');
   const [telefoneSecundarioError, setTelefoneSecundarioError] = useState<string>('');
+  const [cepError, setCepError] = useState<string>('');
 
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
@@ -113,10 +114,17 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
       setTelefoneSecundarioError('Telefone deve conter 10 ou 11 dígitos');
       return;
     }
+
+    // Valida CEP antes de submeter (se preenchido)
+    if (formData.enderecoCep && !validateCEP(formData.enderecoCep)) {
+      setCepError('CEP deve conter 8 dígitos');
+      return;
+    }
     
     setCpfError('');
     setTelefoneError('');
     setTelefoneSecundarioError('');
+    setCepError('');
     
     // Converte datas do formato dd/mm/yyyy para yyyy-mm-dd antes de enviar
     const submitData = {
@@ -198,6 +206,30 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
       ...prev,
       [fieldName]: maskedValue
     }));
+  };
+
+  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const maskedValue = applyCEPMask(rawValue);
+
+    // Remove formatação para armazenar apenas números
+    const numbersOnly = removeFormatting(maskedValue);
+
+    setFormData(prev => ({
+      ...prev,
+      enderecoCep: numbersOnly
+    }));
+
+    // Validação em tempo real
+    if (numbersOnly.length > 0 && numbersOnly.length < 8) {
+      setCepError('CEP deve conter 8 dígitos');
+    } else if (numbersOnly.length === 8) {
+      setCepError('');
+    } else if (numbersOnly.length > 8) {
+      setCepError('CEP deve conter no máximo 8 dígitos');
+    } else {
+      setCepError('');
+    }
   };
 
 
@@ -342,6 +374,23 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
           <div className="form-section">
             <h4>Endereço</h4>
             <div className="form-row">
+              
+            <div className="form-group">
+                <label>CEP</label>
+                <input
+                  type="text"
+                  name="enderecoCep"
+                  value={applyCEPMask(formData.enderecoCep)}
+                  onChange={handleCEPChange}
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                {cepError && 
+                  <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                    {cepError}
+                  </span>}
+              </div>
+
               <div className="form-group form-group-large">
                 <label>Logradouro</label>
                 <input
@@ -406,15 +455,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
                 />
               </div>
 
-              <div className="form-group">
-                <label>CEP</label>
-                <input
-                  type="text"
-                  name="enderecoCep"
-                  value={formData.enderecoCep}
-                  onChange={handleChange}
-                />
-              </div>
+              
             </div>
           </div>
 
