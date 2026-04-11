@@ -9,7 +9,10 @@ public interface PatientService {
     PatientResponse create(PatientRequest request);
     PatientResponse update(Long id, PatientRequest request);
     PatientResponse getById(Long id);
-    List<PatientResponse> listAll(String status);
+    List<PatientResponse> listAll(String tipoContrato, String bairro);
+
+    List<String> listDistinctNeighborhoods();
+
     void delete(Long id);
     PatientResponse updateLastVisit(Long id, LocalDate lastVisitDate);
 }

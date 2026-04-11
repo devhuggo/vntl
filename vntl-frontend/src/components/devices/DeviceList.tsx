@@ -2,21 +2,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceService } from '../../services/device.service';
 import { useState } from 'react';
 import DeviceForm from './DeviceForm';
-import type { Aparelho, StatusAparelho } from '../../types/devices.types';
-import { StatusAparelho as StatusAparelhoEnum } from '../../types/devices.types';
+import type { Aparelho, DeviceListFilters, StatusAparelho } from '../../types/devices.types';
 
 const DeviceList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Aparelho | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const [dataCompraDe, setDataCompraDe] = useState('');
+  const [dataCompraAte, setDataCompraAte] = useState('');
+  const [dataUltimaTrocaDe, setDataUltimaTrocaDe] = useState('');
+  const [dataUltimaTrocaAte, setDataUltimaTrocaAte] = useState('');
 
   const queryClient = useQueryClient();
 
+  const listFilters: DeviceListFilters | undefined = (() => {
+    const p: DeviceListFilters = {};
+    if (dataCompraDe) p.dataCompraDe = dataCompraDe;
+    if (dataCompraAte) p.dataCompraAte = dataCompraAte;
+    if (dataUltimaTrocaDe) p.dataUltimaTrocaDe = dataUltimaTrocaDe;
+    if (dataUltimaTrocaAte) p.dataUltimaTrocaAte = dataUltimaTrocaAte;
+    return Object.keys(p).length ? p : undefined;
+  })();
+
   const { data: devices = [], isLoading } = useQuery({
-    queryKey: ['devices', statusFilter],
-    queryFn: () => statusFilter === 'all' 
-      ? deviceService.getAll() 
-      : deviceService.getByStatus(statusFilter)
+    queryKey: ['devices', dataCompraDe, dataCompraAte, dataUltimaTrocaDe, dataUltimaTrocaAte],
+    queryFn: () => deviceService.getAll(listFilters)
   });
 
   const deleteMutation = useMutation({
@@ -62,6 +72,12 @@ const DeviceList = () => {
     return classes[status];
   };
 
+  const formatTableDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const iso = value.split('T')[0];
+    return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR');
+  };
+
   if (isLoading) return <div>Carregando...</div>;
 
   return (
@@ -73,19 +89,47 @@ const DeviceList = () => {
         </button>
       </div>
 
-      <div className="filters">
-        <select 
-          value={statusFilter} 
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="filter-select"
-        >
-          <option value="all">Todos os Status</option>
-          {Object.values(StatusAparelhoEnum).map(status => (
-            <option key={status} value={status}>
-              {getStatusLabel(status)}
-            </option>
-          ))}
-        </select>
+      <div className="filters device-filters-grid">
+        <div className="form-group filter-date-group">
+          <label htmlFor="filter-data-compra-de">Data de compra (de)</label>
+          <input
+            id="filter-data-compra-de"
+            type="date"
+            value={dataCompraDe}
+            onChange={(e) => setDataCompraDe(e.target.value)}
+            className="filter-select"
+          />
+        </div>
+        <div className="form-group filter-date-group">
+          <label htmlFor="filter-data-compra-ate">Data de compra (até)</label>
+          <input
+            id="filter-data-compra-ate"
+            type="date"
+            value={dataCompraAte}
+            onChange={(e) => setDataCompraAte(e.target.value)}
+            className="filter-select"
+          />
+        </div>
+        <div className="form-group filter-date-group">
+          <label htmlFor="filter-ultima-troca-de">Última troca (de)</label>
+          <input
+            id="filter-ultima-troca-de"
+            type="date"
+            value={dataUltimaTrocaDe}
+            onChange={(e) => setDataUltimaTrocaDe(e.target.value)}
+            className="filter-select"
+          />
+        </div>
+        <div className="form-group filter-date-group">
+          <label htmlFor="filter-ultima-troca-ate">Última troca (até)</label>
+          <input
+            id="filter-ultima-troca-ate"
+            type="date"
+            value={dataUltimaTrocaAte}
+            onChange={(e) => setDataUltimaTrocaAte(e.target.value)}
+            className="filter-select"
+          />
+        </div>
       </div>
 
       {showForm && (
@@ -104,6 +148,7 @@ const DeviceList = () => {
               <th>Tipo</th>
               <th>Marca/Modelo</th>
               <th>Data Compra</th>
+              <th>Última troca</th>
               <th>Status</th>
               <th>Paciente</th>
               <th>Ações</th>
@@ -112,7 +157,7 @@ const DeviceList = () => {
           <tbody>
             {devices.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty-state">
+                <td colSpan={8} className="empty-state">
                   Nenhum aparelho encontrado
                 </td>
               </tr>
@@ -122,12 +167,12 @@ const DeviceList = () => {
                   <td>{device.numeroPatrimonio}</td>
                   <td>{device.tipo}</td>
                   <td>
-                    {device.marca && device.modelo 
+                    {device.marca && device.modelo
                       ? `${device.marca} - ${device.modelo}`
-                      : device.marca || device.modelo || '-'
-                    }
+                      : device.marca || device.modelo || '-'}
                   </td>
-                  <td>{new Date(device.dataCompra).toLocaleDateString('pt-BR')}</td>
+                  <td>{formatTableDate(device.dataCompra)}</td>
+                  <td>{formatTableDate(device.dataUltimaTroca ?? undefined)}</td>
                   <td>
                     <span className={`status-badge ${getStatusClass(device.status)}`}>
                       {getStatusLabel(device.status)}
@@ -136,13 +181,13 @@ const DeviceList = () => {
                   <td>{device.pacienteNome || '-'}</td>
                   <td>
                     <div className="action-buttons">
-                      <button 
+                      <button
                         onClick={() => handleEdit(device)}
                         className="btn btn-sm btn-secondary"
                       >
                         Editar
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(device.id)}
                         className="btn btn-sm btn-danger"
                       >

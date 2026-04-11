@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../contexts/AuthContext';
 import { visitService } from '../../services/visit.service';
 import { pacientService } from '../../services/pacient.service';
-import { professionalService } from '../../services/professional.service';
-import { deviceService } from '../../services/device.service';
 import type { Visit, VisitRequest, VisitStatus, VisitType } from '../../types/visit.types';
 import { VisitStatus as VisitStatusEnum, VisitType as VisitTypeEnum } from '../../types/visit.types';
 import type { Pacient } from '../../types/pacient.types';
-import type { Professional } from '../../types/professional.types';
-import type { Aparelho } from '../../types/devices.types';
 
 interface VisitFormProps {
   visit?: Visit | null;
@@ -18,26 +15,17 @@ interface VisitFormProps {
 
 const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const myProfessionalId = user?.professionalId ?? undefined;
 
   const { data: patients = [] } = useQuery<Pacient[]>({
     queryKey: ['patients'],
-    queryFn: pacientService.getAll
-  });
-
-  const { data: professionals = [] } = useQuery<Professional[]>({
-    queryKey: ['professionals'],
-    queryFn: professionalService.getAll
-  });
-
-  const { data: devices = [] } = useQuery<Aparelho[]>({
-    queryKey: ['devices'],
-    queryFn: deviceService.getAll
+    queryFn: () => pacientService.getAll()
   });
 
   const [formData, setFormData] = useState<VisitRequest>(() => ({
     pacienteId: visit?.pacienteId ?? 0,
     profissionalId: visit?.profissionalId ?? 0,
-    aparelhoId: visit?.aparelhoId,
     dataVisita: visit?.dataVisita ?? '',
     status: visit?.status ?? VisitStatusEnum.AGENDADA,
     observacoes: visit?.observacoes ?? '',
@@ -46,14 +34,14 @@ const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
   }));
 
   useEffect(() => {
-    if (!visit && patients.length > 0 && professionals.length > 0) {
-      setFormData(prev => ({
+    if (!visit && patients.length > 0 && myProfessionalId) {
+      setFormData((prev) => ({
         ...prev,
         pacienteId: prev.pacienteId || patients[0].id,
-        profissionalId: prev.profissionalId || professionals[0].id
+        profissionalId: myProfessionalId
       }));
     }
-  }, [visit, patients, professionals]);
+  }, [visit, patients, myProfessionalId]);
 
   const createMutation = useMutation({
     mutationFn: visitService.create,
@@ -74,19 +62,26 @@ const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'pacienteId' || name === 'profissionalId' || name === 'aparelhoId'
-        ? (value ? Number(value) : undefined)
-        : value
+      [name]: name === 'pacienteId' ? (value ? Number(value) : undefined) : value
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!myProfessionalId) {
+      alert(
+        'Sua conta não está vinculada a um profissional. Ajuste o cadastro no banco de dados ou contate o suporte.'
+      );
+      return;
+    }
+
     const payload: VisitRequest = {
       ...formData,
+      profissionalId: myProfessionalId,
+      aparelhoId: visit?.aparelhoId,
       proximaVisita: formData.proximaVisita || undefined
     };
 
@@ -139,42 +134,9 @@ const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
                 required
               >
                 <option value="">Selecione um paciente</option>
-                {patients.map(p => (
+                {patients.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Profissional</label>
-              <select
-                name="profissionalId"
-                value={formData.profissionalId || ''}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Selecione um profissional</option>
-                {professionals.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Aparelho (opcional)</label>
-              <select
-                name="aparelhoId"
-                value={formData.aparelhoId || ''}
-                onChange={handleChange}
-              >
-                <option value="">Sem aparelho vinculado</option>
-                {devices.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.numeroPatrimonio} - {d.tipo}
                   </option>
                 ))}
               </select>
@@ -199,7 +161,7 @@ const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
                 onChange={handleChange}
                 required
               >
-                {Object.values(VisitTypeEnum).map(type => (
+                {Object.values(VisitTypeEnum).map((type) => (
                   <option key={type} value={type}>
                     {getTypeLabel(type)}
                   </option>
@@ -215,7 +177,7 @@ const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
                 onChange={handleChange}
                 required
               >
-                {Object.values(VisitStatusEnum).map(status => (
+                {Object.values(VisitStatusEnum).map((status) => (
                   <option key={status} value={status}>
                     {getStatusLabel(status)}
                   </option>
@@ -253,4 +215,3 @@ const VisitForm = ({ visit, onClose, onSuccess }: VisitFormProps) => {
 };
 
 export default VisitForm;
-

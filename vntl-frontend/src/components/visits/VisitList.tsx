@@ -2,11 +2,9 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { visitService } from '../../services/visit.service';
 import { pacientService } from '../../services/pacient.service';
-import { professionalService } from '../../services/professional.service';
 import type { Visit, VisitStatus } from '../../types/visit.types';
 import { VisitStatus as VisitStatusEnum } from '../../types/visit.types';
 import type { Pacient } from '../../types/pacient.types';
-import type { Professional } from '../../types/professional.types';
 import VisitForm from './VisitForm';
 
 const VisitList = () => {
@@ -15,21 +13,31 @@ const VisitList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [professionalFilter, setProfessionalFilter] = useState<number | 'all'>('all');
+  const [dataVisitaDe, setDataVisitaDe] = useState('');
+  const [dataVisitaAte, setDataVisitaAte] = useState('');
+
+  const listParams = (() => {
+    const p: {
+      status?: string;
+      dataVisitaDe?: string;
+      dataVisitaAte?: string;
+    } = {};
+    if (statusFilter !== 'all') p.status = statusFilter;
+    if (dataVisitaDe && dataVisitaAte) {
+      p.dataVisitaDe = dataVisitaDe;
+      p.dataVisitaAte = dataVisitaAte;
+    }
+    return Object.keys(p).length ? p : undefined;
+  })();
 
   const { data: visits = [], isLoading } = useQuery<Visit[]>({
-    queryKey: ['visits'],
-    queryFn: visitService.getAll
+    queryKey: ['visits', statusFilter, dataVisitaDe, dataVisitaAte],
+    queryFn: () => visitService.getAll(listParams)
   });
 
   const { data: patients = [] } = useQuery<Pacient[]>({
     queryKey: ['patients'],
-    queryFn: pacientService.getAll
-  });
-
-  const { data: professionals = [] } = useQuery<Professional[]>({
-    queryKey: ['professionals'],
-    queryFn: professionalService.getAll
+    queryFn: () => pacientService.getAll()
   });
 
   const deleteMutation = useMutation({
@@ -105,23 +113,14 @@ const VisitList = () => {
     return classes[status];
   };
 
-  const getProfessionalName = (id: number | undefined) => {
-    if (!id) return '-';
-    const prof = professionals.find(p => p.id === id);
-    return prof?.nome || '-';
-  };
-
   const getPatientName = (id: number | undefined) => {
     if (!id) return '-';
-    const patient = patients.find(p => p.id === id);
+    const patient = patients.find((p) => p.id === id);
     return patient?.nome || '-';
   };
 
-  const filteredVisits = visits.filter(v => {
-    if (statusFilter !== 'all' && v.status !== statusFilter) return false;
-    if (professionalFilter !== 'all' && v.profissionalId !== professionalFilter) return false;
-    return true;
-  });
+  const periodFilterIncomplete =
+    (dataVisitaDe && !dataVisitaAte) || (!dataVisitaDe && dataVisitaAte);
 
   if (isLoading) return <div>Carregando...</div>;
 
@@ -134,42 +133,50 @@ const VisitList = () => {
         </button>
       </div>
 
-      <div className="filters">
+      <div className="filters visit-filters-grid">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="filter-select"
+          aria-label="Filtrar por status"
         >
           <option value="all">Todos os Status</option>
-          {Object.values(VisitStatusEnum).map(status => (
+          {Object.values(VisitStatusEnum).map((status) => (
             <option key={status} value={status}>
               {getStatusLabel(status)}
             </option>
           ))}
         </select>
-
-        <select
-          value={professionalFilter}
-          onChange={(e) =>
-            setProfessionalFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))
-          }
-          className="filter-select"
-        >
-          <option value="all">Todos os Profissionais</option>
-          {professionals.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.nome}
-            </option>
-          ))}
-        </select>
+        <div className="form-group filter-date-group">
+          <label htmlFor="visit-filter-de">Data da visita (de)</label>
+          <input
+            id="visit-filter-de"
+            type="date"
+            value={dataVisitaDe}
+            onChange={(e) => setDataVisitaDe(e.target.value)}
+            className="filter-select"
+          />
+        </div>
+        <div className="form-group filter-date-group">
+          <label htmlFor="visit-filter-ate">Data da visita (até)</label>
+          <input
+            id="visit-filter-ate"
+            type="date"
+            value={dataVisitaAte}
+            onChange={(e) => setDataVisitaAte(e.target.value)}
+            className="filter-select"
+          />
+        </div>
       </div>
+      {periodFilterIncomplete && (
+        <p className="filter-hint" role="status">
+          Informe <strong>data inicial e final</strong> para filtrar por período. Com apenas uma data, o
+          período não é aplicado.
+        </p>
+      )}
 
       {showForm && (
-        <VisitForm
-          visit={editingVisit}
-          onClose={handleCloseForm}
-          onSuccess={handleCloseForm}
-        />
+        <VisitForm visit={editingVisit} onClose={handleCloseForm} onSuccess={handleCloseForm} />
       )}
 
       <div className="table-container">
@@ -178,22 +185,20 @@ const VisitList = () => {
             <tr>
               <th>Data</th>
               <th>Paciente</th>
-              <th>Profissional</th>
               <th>Tipo</th>
               <th>Status</th>
-              <th>Próxima Visita</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {filteredVisits.length === 0 ? (
+            {visits.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty-state">
+                <td colSpan={5} className="empty-state">
                   Nenhuma visita encontrada
                 </td>
               </tr>
             ) : (
-              filteredVisits.map(visit => (
+              visits.map((visit) => (
                 <tr key={visit.id}>
                   <td>
                     {visit.dataVisita
@@ -201,17 +206,11 @@ const VisitList = () => {
                       : '-'}
                   </td>
                   <td>{getPatientName(visit.pacienteId)}</td>
-                  <td>{getProfessionalName(visit.profissionalId)}</td>
                   <td>{visit.tipoVisita}</td>
                   <td>
                     <span className={`status-badge ${getStatusClass(visit.status)}`}>
                       {getStatusLabel(visit.status)}
                     </span>
-                  </td>
-                  <td>
-                    {visit.proximaVisita
-                      ? new Date(visit.proximaVisita).toLocaleDateString('pt-BR')
-                      : '-'}
                   </td>
                   <td>
                     <div className="action-buttons">
@@ -257,4 +256,3 @@ const VisitList = () => {
 };
 
 export default VisitList;
-

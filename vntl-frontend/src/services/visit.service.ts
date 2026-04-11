@@ -1,9 +1,15 @@
 import api from './api';
 import type { Visit, VisitRequest } from '../types/visit.types';
 
+export type VisitListParams = {
+  status?: string;
+  dataVisitaDe?: string;
+  dataVisitaAte?: string;
+};
+
 export const visitService = {
-  async getAll(): Promise<Visit[]> {
-    const response = await api.get('/visits');
+  async getAll(params?: VisitListParams): Promise<Visit[]> {
+    const response = await api.get('/visits', { params });
     return response.data;
   },
 

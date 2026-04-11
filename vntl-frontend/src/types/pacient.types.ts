@@ -15,6 +15,12 @@ export const ContractType = {
 export type PacientStatus = typeof PacientStatus[keyof typeof PacientStatus];
 export type ContractType = typeof ContractType[keyof typeof ContractType];
 
+export interface PacienteAparelho {
+  id: number;
+  tipo: string;
+  numeroPatrimonio: string;
+}
+
 export interface Pacient {
   id: number;
   nome: string;
@@ -35,8 +41,7 @@ export interface Pacient {
   dataRegistro: string;
   dataUltimaVisita?: string;
   dataProximaVisita?: string;
-  aparelhoId?: number;
-  aparelhoTipo?: string;
+  aparelhos?: PacienteAparelho[];
   profissionalResponsavelId?: number;
   profissionalResponsavelNome?: string;
   observacoes?: string;
@@ -59,7 +64,7 @@ export interface PacientRequest {
   tipoContrato: ContractType;
   status: PacientStatus;
   dataProximaVisita?: string;
-  aparelhoId?: number;
+  aparelhoIds?: number[];
   profissionalResponsavelId?: number;
   observacoes?: string;
 }

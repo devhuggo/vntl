@@ -23,30 +23,33 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     List<Patient> findByProfessionalResponsibleId(Long professionalId);
 
-    Optional<Patient> findByDeviceId(Long deviceId);
+    @Query("SELECT p FROM Patient p LEFT JOIN FETCH p.devices WHERE p.id = :id")
+    Optional<Patient> findByIdWithDevices(@Param("id") Long id);
 
-    /**
-     * Query otimizada que retorna o ID do paciente, nome do profissional responsável e tipo do equipamento
-     * usando LEFT JOIN para evitar N+1 queries.
-     * Retorna um array onde [0] = patientId (Long), [1] = professionalName (String), [2] = deviceType (String).
-     */
-    @Query(value = "SELECT p.id, pr.name, d.type " +
-            "FROM patients p " +
-            "LEFT JOIN professionals pr ON p.professional_responsible_id = pr.id " +
-            "LEFT JOIN devices d ON p.device_id = d.id",
-            nativeQuery = true)
-    List<Object[]> findAllPatientIdsWithProfessionalNames();
+    @Query(
+            """
+            SELECT DISTINCT p FROM Patient p LEFT JOIN FETCH p.devices
+            WHERE (:contractType IS NULL OR p.contractType = :contractType)
+              AND (:neighborhood IS NULL OR TRIM(p.addressNeighborhood) = :neighborhood)
+            """)
+    List<Patient> findAllWithDevicesFiltered(
+            @Param("contractType") ContractType contractType, @Param("neighborhood") String neighborhood);
 
-    /**
-     * Query otimizada que retorna o ID do paciente, nome do profissional responsável e tipo do equipamento
-     * filtrados por status usando LEFT JOIN para evitar N+1 queries.
-     * Retorna um array onde [0] = patientId (Long), [1] = professionalName (String), [2] = deviceType (String).
-     */
-    @Query(value = "SELECT p.id, pr.name, d.type " +
-            "FROM patients p " +
-            "LEFT JOIN professionals pr ON p.professional_responsible_id = pr.id " +
-            "LEFT JOIN devices d ON p.device_id = d.id " +
-            "WHERE p.status = :status",
+    @Query(
+            value =
+                    """
+                    SELECT DISTINCT TRIM(address_neighborhood) AS nb
+                    FROM patients
+                    WHERE address_neighborhood IS NOT NULL
+                      AND TRIM(address_neighborhood) <> ''
+                    ORDER BY nb
+                    """,
             nativeQuery = true)
-    List<Object[]> findPatientIdsWithProfessionalNamesByStatus(@Param("status") String status);
+    List<String> findDistinctNeighborhoodsTrimmed();
+
+    @Query(value = "SELECT patient_id FROM patient_devices WHERE device_id = :deviceId", nativeQuery = true)
+    Optional<Long> findPatientIdOwningDevice(@Param("deviceId") Long deviceId);
+
+    @Query("SELECT p FROM Patient p JOIN p.devices d WHERE d.id = :deviceId")
+    Optional<Patient> findByLinkedDeviceId(@Param("deviceId") Long deviceId);
 }

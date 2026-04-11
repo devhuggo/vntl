@@ -69,11 +69,22 @@ public class VisitController {
             @RequestParam(value = "inicio", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam(value = "fim", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            @RequestParam(value = "dataVisitaDe", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataVisitaDe,
+            @RequestParam(value = "dataVisitaAte", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataVisitaAte) {
 
-        return ResponseEntity.ok(
-                visitService.search(patientId, professionalId, deviceId, status, visitType, start, end)
-        );
+        return ResponseEntity.ok(visitService.search(
+                patientId,
+                professionalId,
+                deviceId,
+                status,
+                visitType,
+                start,
+                end,
+                dataVisitaDe,
+                dataVisitaAte));
     }
 
     /**

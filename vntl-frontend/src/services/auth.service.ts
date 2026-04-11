@@ -4,10 +4,13 @@ import type { LoginRequest, LoginResponse, User } from '../types/auth.types';
 export const authService = {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await api.post('/auth/login', credentials);
-    const { token, username, nome, role } = response.data;
-    
+    const { token, username, nome, role, professionalId } = response.data;
+
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify({ username, nome, role }));
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ username, nome, role, professionalId: professionalId ?? null })
+    );
     
     return response.data;
   },

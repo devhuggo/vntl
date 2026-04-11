@@ -2,6 +2,7 @@ package dev.huggo.vntl_backend.service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
+import java.util.List;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -61,8 +62,8 @@ public class PatientRequest {
     @JsonProperty("dataProximaVisita")
     private LocalDate nextVisitDate;
 
-    @JsonProperty("aparelhoId")
-    private Long deviceId;
+    @JsonProperty("aparelhoIds")
+    private List<Long> deviceIds;
 
     @JsonProperty("profissionalResponsavelId")
     private Long professionalResponsibleId;

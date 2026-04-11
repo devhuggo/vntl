@@ -23,7 +23,9 @@ public interface VisitService {
             String status,
             String visitType,
             LocalDateTime start,
-            LocalDateTime end);
+            LocalDateTime end,
+            LocalDate dataVisitaDe,
+            LocalDate dataVisitaAte);
 
     List<VisitResponse> listByDate(LocalDate date);
 

@@ -2,21 +2,29 @@ package dev.huggo.vntl_backend.domain;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -26,6 +34,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(exclude = "devices")
+@ToString(exclude = "devices")
 public class Patient {
 
     @Id
@@ -93,9 +103,13 @@ public class Patient {
     @Column(name = "next_visit_date")
     private LocalDate nextVisitDate;
 
-    // We keep simple references for now; relations can be added when device/professional entities exist
-    @Column(name = "device_id")
-    private Long deviceId;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "patient_devices",
+            joinColumns = @JoinColumn(name = "patient_id"),
+            inverseJoinColumns = @JoinColumn(name = "device_id"))
+    @Builder.Default
+    private Set<Device> devices = new HashSet<>();
 
     @Column(name = "professional_responsible_id")
     private Long professionalResponsibleId;

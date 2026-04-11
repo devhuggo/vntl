@@ -4,6 +4,7 @@ import dev.huggo.vntl_backend.service.DeviceService;
 import dev.huggo.vntl_backend.service.dto.DeviceRequest;
 import dev.huggo.vntl_backend.service.dto.DeviceResponse;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -45,8 +46,12 @@ public class DeviceController {
 
     @GetMapping
     public ResponseEntity<List<DeviceResponse>> listAll(
-            @RequestParam(value = "status", required = false) String status) {
-        return ResponseEntity.ok(deviceService.listAll(status));
+            @RequestParam(value = "dataCompraDe", required = false) LocalDate dataCompraDe,
+            @RequestParam(value = "dataCompraAte", required = false) LocalDate dataCompraAte,
+            @RequestParam(value = "dataUltimaTrocaDe", required = false) LocalDate dataUltimaTrocaDe,
+            @RequestParam(value = "dataUltimaTrocaAte", required = false) LocalDate dataUltimaTrocaAte) {
+        return ResponseEntity.ok(
+                deviceService.listAll(dataCompraDe, dataCompraAte, dataUltimaTrocaDe, dataUltimaTrocaAte));
     }
 
     @DeleteMapping("/{id}")

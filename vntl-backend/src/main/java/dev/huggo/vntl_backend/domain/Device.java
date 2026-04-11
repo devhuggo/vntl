@@ -47,6 +47,9 @@ public class Device {
     @Column(name = "purchase_date", nullable = false)
     private LocalDate purchaseDate;
 
+    @Column(name = "last_exchange_date")
+    private LocalDate lastExchangeDate;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private DeviceStatus status;

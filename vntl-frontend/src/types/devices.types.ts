@@ -15,6 +15,8 @@ export interface Aparelho {
   modelo?: string;
   numeroSerie?: string;
   dataCompra: string;
+  /** ISO date (yyyy-mm-dd) ou null quando não há troca registrada */
+  dataUltimaTroca?: string | null;
   status: StatusAparelho;
   pacienteId?: number;
   pacienteNome?: string;
@@ -28,7 +30,15 @@ export interface AparelhoRequest {
   modelo?: string;
   numeroSerie?: string;
   dataCompra: string;
+  dataUltimaTroca?: string | null;
   status: StatusAparelho;
   pacienteId?: number;
   observacoes?: string;
+}
+
+export interface DeviceListFilters {
+  dataCompraDe?: string;
+  dataCompraAte?: string;
+  dataUltimaTrocaDe?: string;
+  dataUltimaTrocaAte?: string;
 }

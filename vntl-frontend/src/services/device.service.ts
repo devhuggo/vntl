@@ -1,9 +1,9 @@
 import api from './api';
-import type { Aparelho, AparelhoRequest } from '../types/devices.types';
+import type { Aparelho, AparelhoRequest, DeviceListFilters } from '../types/devices.types';
 
 export const deviceService = {
-  async getAll(): Promise<Aparelho[]> {
-    const response = await api.get('/devices');
+  async getAll(filters?: DeviceListFilters): Promise<Aparelho[]> {
+    const response = await api.get('/devices', { params: filters });
     return response.data;
   },
 
@@ -24,10 +24,5 @@ export const deviceService = {
 
   async delete(id: number): Promise<void> {
     await api.delete(`/devices/${id}`);
-  },
-
-  async getByStatus(status: string): Promise<Aparelho[]> {
-    const response = await api.get(`/devices?status=${status}`);
-    return response.data;
   }
 };

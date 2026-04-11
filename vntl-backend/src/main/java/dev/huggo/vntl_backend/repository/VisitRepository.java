@@ -27,18 +27,23 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
 
     List<Visit> findByProfessionalIdAndVisitDateBetween(Long professionalId, LocalDate start, LocalDate end);
 
-    @Query("SELECT v FROM Visit v " +
-           "WHERE (:patientId IS NULL OR v.patientId = :patientId) " +
-           "AND (:professionalId IS NULL OR v.professionalId = :professionalId) " +
-           "AND (:deviceId IS NULL OR v.deviceId = :deviceId) " +
-           "AND (:status IS NULL OR v.status = :status) " +
-           "AND (:visitType IS NULL OR v.visitType = :visitType)")
+    @Query(
+            "SELECT v FROM Visit v "
+                    + "WHERE (:patientId IS NULL OR v.patientId = :patientId) "
+                    + "AND (:professionalId IS NULL OR v.professionalId = :professionalId) "
+                    + "AND (:deviceId IS NULL OR v.deviceId = :deviceId) "
+                    + "AND (:status IS NULL OR v.status = :status) "
+                    + "AND (:visitType IS NULL OR v.visitType = :visitType) "
+                    + "AND (:visitFrom IS NULL OR v.visitDate >= :visitFrom) "
+                    + "AND (:visitTo IS NULL OR v.visitDate <= :visitTo)")
     List<Visit> search(
             @Param("patientId") Long patientId,
             @Param("professionalId") Long professionalId,
             @Param("deviceId") Long deviceId,
             @Param("status") VisitStatus status,
-            @Param("visitType") VisitType visitType);
+            @Param("visitType") VisitType visitType,
+            @Param("visitFrom") LocalDate visitFrom,
+            @Param("visitTo") LocalDate visitTo);
 
     boolean existsByProfessionalIdAndStatusInAndVisitDate(
             Long professionalId,

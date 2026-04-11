@@ -1,24 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 import { deviceService } from '../services/device.service';
 import { pacientService } from '../services/pacient.service';
-import { professionalService } from '../services/professional.service';
 import { StatusAparelho } from '../types/devices.types';
 import { PacientStatus } from '../types/pacient.types';
 
 const Dashboard = () => {
+  const { user } = useAuth();
+
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
-    queryFn: deviceService.getAll
+    queryFn: () => deviceService.getAll()
   });
 
   const { data: patients = [] } = useQuery({
     queryKey: ['patients'],
-    queryFn: pacientService.getAll
-  });
-
-  const { data: professionals = [] } = useQuery({
-    queryKey: ['professionals'],
-    queryFn: professionalService.getAll
+    queryFn: () => pacientService.getAll()
   });
 
   const devicesInStock = devices.filter(d => d.status === StatusAparelho.ESTOQUE).length;
@@ -27,8 +24,6 @@ const Dashboard = () => {
 
   const activePatients = patients.filter(p => p.status === PacientStatus.ATIVO).length;
   const waitingPatients = patients.filter(p => p.status === PacientStatus.AGUARDANDO).length;
-
-  const activeProfessionals = professionals.filter(p => p.ativo).length;
 
   const upcomingVisits = patients.filter(p => {
     if (!p.dataProximaVisita) return false;
@@ -70,17 +65,6 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">👨‍⚕️</div>
-          <div className="stat-content">
-            <h3>Profissionais</h3>
-            <p className="stat-number">{professionals.length}</p>
-            <div className="stat-details">
-              <span>Ativos: {activeProfessionals}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card">
           <div className="stat-icon">📅</div>
           <div className="stat-content">
             <h3>Próximas Visitas</h3>
@@ -111,7 +95,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                   <span className="visit-professional">
-                    {patient.profissionalResponsavelNome || 'Sem profissional'}
+                    {patient.profissionalResponsavelNome || user?.nome || '—'}
                   </span>
                 </div>
               ))}

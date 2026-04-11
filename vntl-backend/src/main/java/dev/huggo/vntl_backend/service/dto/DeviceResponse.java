@@ -29,6 +29,9 @@ public class DeviceResponse {
     @JsonProperty("dataCompra")
     LocalDate purchaseDate;
 
+    @JsonProperty("dataUltimaTroca")
+    LocalDate lastExchangeDate;
+
     @JsonProperty("status")
     String status;
 

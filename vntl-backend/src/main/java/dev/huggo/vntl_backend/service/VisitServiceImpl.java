@@ -99,34 +99,26 @@ public class VisitServiceImpl implements VisitService {
             String status,
             String visitType,
             LocalDateTime start,
-            LocalDateTime end) {
+            LocalDateTime end,
+            LocalDate dataVisitaDe,
+            LocalDate dataVisitaAte) {
 
         VisitStatus statusEnum = parseStatus(status).orElse(null);
         VisitType typeEnum = parseType(visitType).orElse(null);
+
+        LocalDate visitFrom = dataVisitaDe != null ? dataVisitaDe : (start != null ? start.toLocalDate() : null);
+        LocalDate visitTo = dataVisitaAte != null ? dataVisitaAte : (end != null ? end.toLocalDate() : null);
 
         List<Visit> visits = visitRepository.search(
                 patientId,
                 professionalId,
                 deviceId,
                 statusEnum,
-                typeEnum
-        );
+                typeEnum,
+                visitFrom,
+                visitTo);
 
-        LocalDateTime startDateTime = start;
-        LocalDateTime endDateTime = end;
-
-        return visits.stream()
-                .filter(v -> {
-                    if (startDateTime != null && v.getVisitDate().atStartOfDay().isBefore(startDateTime)) {
-                        return false;
-                    }
-                    if (endDateTime != null && v.getVisitDate().atTime(LocalTime.MAX).isAfter(endDateTime)) {
-                        return false;
-                    }
-                    return true;
-                })
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        return visits.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     @Override

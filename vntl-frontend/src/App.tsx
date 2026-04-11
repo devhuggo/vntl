@@ -6,7 +6,6 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import DevicesPage from './pages/DevicesPage';
 import PatientsPage from './pages/PatientsPage';
-import ProfessionalsPage from './pages/ProfessionalsPage';
 import VisitsPage from './pages/VisitsPage';
 import './App.css';
 
@@ -52,16 +51,6 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <PatientsPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/professionals"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ProfessionalsPage />
                 </Layout>
               </ProtectedRoute>
             }

@@ -45,6 +45,11 @@ public class PatientController {
         return ResponseEntity.ok(patientService.update(id, request));
     }
 
+    @GetMapping("/bairros")
+    public ResponseEntity<List<String>> listNeighborhoods() {
+        return ResponseEntity.ok(patientService.listDistinctNeighborhoods());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PatientResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(patientService.getById(id));
@@ -52,8 +57,9 @@ public class PatientController {
 
     @GetMapping
     public ResponseEntity<List<PatientResponse>> listAll(
-            @RequestParam(value = "status", required = false) String status) {
-        return ResponseEntity.ok(patientService.listAll(status));
+            @RequestParam(value = "tipoContrato", required = false) String tipoContrato,
+            @RequestParam(value = "bairro", required = false) String bairro) {
+        return ResponseEntity.ok(patientService.listAll(tipoContrato, bairro));
     }
 
     @DeleteMapping("/{id}")

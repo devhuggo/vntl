@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceService } from '../../services/device.service';
-import type { Aparelho, AparelhoRequest } from '../../types/devices.types';
+import type { Aparelho } from '../../types/devices.types';
 import { StatusAparelho as StatusAparelhoEnum } from '../../types/devices.types';
-import { useQuery } from '@tanstack/react-query';
-import { pacientService } from '../../services/pacient.service';
+import type { AparelhoRequest } from '../../types/devices.types';
 import { formatDateToBR, formatDateToISO, applyDateMask } from '../../utils/formatters';
+
+type DeviceFormState = Omit<AparelhoRequest, 'dataCompra' | 'dataUltimaTroca'> & {
+  dataCompra: string;
+  dataUltimaTroca: string;
+};
 
 interface DeviceFormProps {
   device?: Aparelho | null;
@@ -18,20 +22,16 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
   const today = new Date();
   const todayBR = formatDateToBR(today.toISOString().split('T')[0]);
   
-  const [formData, setFormData] = useState<Omit<AparelhoRequest, 'dataCompra'> & { dataCompra: string }>({
+  const [formData, setFormData] = useState<DeviceFormState>({
     numeroPatrimonio: '',
     tipo: '',
     marca: '',
     modelo: '',
     numeroSerie: '',
-    dataCompra: todayBR, // Armazena no formato dd/mm/yyyy
+    dataCompra: todayBR,
+    dataUltimaTroca: '',
     status: StatusAparelhoEnum.ESTOQUE,
     observacoes: ''
-  });
-
-  const { data: patients = [] } = useQuery({
-    queryKey: ['patients'],
-    queryFn: pacientService.getAll
   });
 
   const queryClient = useQueryClient();
@@ -39,13 +39,17 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
   useEffect(() => {
     if (device) {
       const dataCompraBR = formatDateToBR(device.dataCompra.split('T')[0]);
+      const dataUltimaTrocaBR = device.dataUltimaTroca
+        ? formatDateToBR(device.dataUltimaTroca.split('T')[0])
+        : '';
       setFormData({
         numeroPatrimonio: device.numeroPatrimonio,
         tipo: device.tipo,
         marca: device.marca || '',
         modelo: device.modelo || '',
         numeroSerie: device.numeroSerie || '',
-        dataCompra: dataCompraBR, // Armazena no formato dd/mm/yyyy
+        dataCompra: dataCompraBR,
+        dataUltimaTroca: dataUltimaTrocaBR,
         status: device.status,
         pacienteId: device.pacienteId,
         observacoes: device.observacoes || ''
@@ -76,7 +80,10 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
     // Converte data do formato dd/mm/yyyy para yyyy-mm-dd antes de enviar
     const submitData: AparelhoRequest = {
       ...formData,
-      dataCompra: formatDateToISO(formData.dataCompra) || formData.dataCompra
+      dataCompra: formatDateToISO(formData.dataCompra) || formData.dataCompra,
+      dataUltimaTroca: !formData.dataUltimaTroca?.trim()
+        ? null
+        : formatDateToISO(formData.dataUltimaTroca) || null
     };
     
     if (device) {
@@ -97,10 +104,18 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
     const maskedValue = applyDateMask(rawValue);
-    
+
     setFormData(prev => ({
       ...prev,
       dataCompra: maskedValue
+    }));
+  };
+
+  const handleUltimaTrocaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const maskedValue = applyDateMask(e.target.value);
+    setFormData(prev => ({
+      ...prev,
+      dataUltimaTroca: maskedValue
     }));
   };
 
@@ -168,7 +183,7 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
           </div>
 
           <div className="form-row">
-              <div className="form-group">
+            <div className="form-group">
               <label>Data de Compra *</label>
               <div className="date-input-wrapper">
                 <input
@@ -218,23 +233,75 @@ const DeviceForm = ({ device, onClose, onSuccess }: DeviceFormProps) => {
             </div>
 
             <div className="form-group">
-              <label>Status *</label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                required
-              >
-                {Object.values(StatusAparelhoEnum).map(status => (
-                  <option key={status} value={status}>
-                    {status === StatusAparelhoEnum.ESTOQUE && 'Estoque'}
-                    {status === StatusAparelhoEnum.EM_USO && 'Em Uso'}
-                    {status === StatusAparelhoEnum.MANUTENCAO && 'Manutenção'}
-                    {status === StatusAparelhoEnum.INATIVO && 'Inativo'}
-                  </option>
-                ))}
-              </select>
+              <label>Data da última troca</label>
+              <div className="date-input-wrapper">
+                <input
+                  type="text"
+                  name="dataUltimaTroca"
+                  value={formData.dataUltimaTroca}
+                  onChange={handleUltimaTrocaChange}
+                  placeholder="dd/mm/yyyy (opcional)"
+                  maxLength={10}
+                />
+                <input
+                  type="date"
+                  id="date-picker-dataUltimaTroca"
+                  className="date-picker-hidden"
+                  value={
+                    formData.dataUltimaTroca ? formatDateToISO(formData.dataUltimaTroca) || '' : ''
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const brDate = formatDateToBR(e.target.value);
+                      setFormData(prev => ({
+                        ...prev,
+                        dataUltimaTroca: brDate
+                      }));
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="date-picker-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const dateInput = document.getElementById(
+                      'date-picker-dataUltimaTroca'
+                    ) as HTMLInputElement;
+                    if (dateInput) {
+                      if (typeof dateInput.showPicker === 'function') {
+                        dateInput.showPicker();
+                      } else {
+                        dateInput.focus();
+                        dateInput.click();
+                      }
+                    }
+                  }}
+                  title="Selecionar data"
+                >
+                  📅
+                </button>
+              </div>
             </div>
+          </div>
+
+          <div className="form-group">
+            <label>Status *</label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              required
+            >
+              {Object.values(StatusAparelhoEnum).map(status => (
+                <option key={status} value={status}>
+                  {status === StatusAparelhoEnum.ESTOQUE && 'Estoque'}
+                  {status === StatusAparelhoEnum.EM_USO && 'Em Uso'}
+                  {status === StatusAparelhoEnum.MANUTENCAO && 'Manutenção'}
+                  {status === StatusAparelhoEnum.INATIVO && 'Inativo'}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="form-group">

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../contexts/AuthContext';
 import { pacientService } from '../../services/pacient.service';
 import { deviceService } from '../../services/device.service';
-import { professionalService } from '../../services/professional.service';
+import { cepService } from '../../services/cep.service';
 import type { Pacient, PacientRequest } from '../../types/pacient.types';
 import { PacientStatus as PacientStatusEnum, ContractType } from '../../types/pacient.types';
 import { applyCPFMask, validateCPF, applyPhoneMask, validatePhone, removeFormatting, formatDateToBR, formatDateToISO, applyDateMask, applyCEPMask, validateCEP } from '../../utils/formatters';
@@ -14,6 +15,9 @@ interface PacientFormProps {
 }
 
 const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
+  const { user } = useAuth();
+  const myProfessionalId = user?.professionalId ?? undefined;
+
   const [formData, setFormData] = useState<PacientRequest>({
     nome: '',
     cpf: '',
@@ -31,7 +35,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
     tipoContrato: ContractType.PARTICULAR,
     status: PacientStatusEnum.ATIVO,
     dataProximaVisita: '',
-    aparelhoId: undefined,
+    aparelhoIds: [],
     profissionalResponsavelId: undefined,
     observacoes: ''
   });
@@ -39,15 +43,11 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
   const [telefoneError, setTelefoneError] = useState<string>('');
   const [telefoneSecundarioError, setTelefoneSecundarioError] = useState<string>('');
   const [cepError, setCepError] = useState<string>('');
+  const [isSearchingCep, setIsSearchingCep] = useState<boolean>(false);
 
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
-    queryFn: deviceService.getAll
-  });
-
-  const { data: professionals = [] } = useQuery({
-    queryKey: ['professionals'],
-    queryFn: professionalService.getAll
+    queryFn: () => deviceService.getAll()
   });
 
   const queryClient = useQueryClient();
@@ -71,7 +71,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
         tipoContrato: pacient.tipoContrato,
         status: pacient.status,
         dataProximaVisita: formatDateToBR(pacient.dataProximaVisita?.split('T')[0]),
-        aparelhoId: pacient.aparelhoId,
+        aparelhoIds: pacient.aparelhos?.map((a) => a.id) ?? [],
         profissionalResponsavelId: pacient.profissionalResponsavelId,
         observacoes: pacient.observacoes || ''
       });
@@ -82,6 +82,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
     mutationFn: pacientService.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['patients', 'bairros'] });
       onSuccess();
     }
   });
@@ -91,6 +92,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
       pacientService.update(pacient!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['patients', 'bairros'] });
       onSuccess();
     }
   });
@@ -125,14 +127,23 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
     setTelefoneError('');
     setTelefoneSecundarioError('');
     setCepError('');
-    
+
+    if (!myProfessionalId) {
+      alert(
+        'Sua conta não está vinculada a um profissional. Ajuste o cadastro no banco de dados ou contate o suporte.'
+      );
+      return;
+    }
+
     // Converte datas do formato dd/mm/yyyy para yyyy-mm-dd antes de enviar
     const submitData = {
       ...formData,
+      profissionalResponsavelId: myProfessionalId,
+      aparelhoIds: formData.aparelhoIds ?? [],
       dataNascimento: formData.dataNascimento ? formatDateToISO(formData.dataNascimento) : '',
       dataProximaVisita: formData.dataProximaVisita ? formatDateToISO(formData.dataProximaVisita) : ''
     };
-    
+
     if (pacient) {
       await updateMutation.mutateAsync(submitData);
     } else {
@@ -144,9 +155,7 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'aparelhoId' || name === 'profissionalResponsavelId' 
-        ? (value ? parseInt(value) : undefined) 
-        : value
+      [name]: value
     }));
   };
 
@@ -232,10 +241,48 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
     }
   };
 
+  const handleSearchCep = async () => {
+    const cep = formData.enderecoCep;
 
-  const availableDevices = devices.filter(d => 
-    d.status === 'ESTOQUE' || d.id === formData.aparelhoId
+    if (!cep || !validateCEP(cep)) {
+      setCepError('Informe um CEP válido com 8 dígitos para buscar o endereço');
+      return;
+    }
+
+    try {
+      setIsSearchingCep(true);
+      setCepError('');
+
+      const address = await cepService.getAddressByCep(cep);
+
+      setFormData(prev => ({
+        ...prev,
+        enderecoLogradouro: address.logradouro || prev.enderecoLogradouro,
+        enderecoBairro: address.bairro || prev.enderecoBairro,
+        enderecoCidade: address.localidade || prev.enderecoCidade,
+        enderecoEstado: address.uf || prev.enderecoEstado
+      }));
+    } catch (error) {
+      setCepError('Não foi possível buscar o endereço para este CEP');
+    } finally {
+      setIsSearchingCep(false);
+    }
+  };
+
+
+  const selectedIds = new Set(formData.aparelhoIds ?? []);
+  const availableDevices = devices.filter(
+    (d) => d.status === 'ESTOQUE' || selectedIds.has(d.id)
   );
+
+  const toggleAparelho = (deviceId: number) => {
+    setFormData((prev) => {
+      const ids = new Set(prev.aparelhoIds ?? []);
+      if (ids.has(deviceId)) ids.delete(deviceId);
+      else ids.add(deviceId);
+      return { ...prev, aparelhoIds: [...ids] };
+    });
+  };
 
   return (
     <div className="modal-overlay">
@@ -377,14 +424,25 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
               
             <div className="form-group">
                 <label>CEP</label>
-                <input
-                  type="text"
-                  name="enderecoCep"
-                  value={applyCEPMask(formData.enderecoCep)}
-                  onChange={handleCEPChange}
-                  placeholder="00000-000"
-                  maxLength={9}
-                />
+                <div className="input-with-icon">
+                  <input
+                    type="text"
+                    name="enderecoCep"
+                    value={applyCEPMask(formData.enderecoCep)}
+                    onChange={handleCEPChange}
+                    placeholder="00000-000"
+                    maxLength={9}
+                  />
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={handleSearchCep}
+                    disabled={isSearchingCep}
+                    title="Buscar endereço pelo CEP"
+                  >
+                    🔍
+                  </button>
+                </div>
                 {cepError && 
                   <span className="error-message" style={{ color: 'red', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
                     {cepError}
@@ -549,37 +607,31 @@ const PacientForm = ({ pacient, onClose, onSuccess }: PacientFormProps) => {
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Aparelho</label>
-                <select
-                  name="aparelhoId"
-                  value={formData.aparelhoId || ''}
-                  onChange={handleChange}
-                >
-                  <option value="">Nenhum</option>
-                  {availableDevices.map(device => (
-                    <option key={device.id} value={device.id}>
-                      {device.numeroPatrimonio} - {device.tipo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Profissional Responsável</label>
-                <select
-                  name="profissionalResponsavelId"
-                  value={formData.profissionalResponsavelId || ''}
-                  onChange={handleChange}
-                >
-                  <option value="">Nenhum</option>
-                  {professionals.filter(p => p.ativo).map(professional => (
-                    <option key={professional.id} value={professional.id}>
-                      {professional.nome}
-                    </option>
-                  ))}
-                </select>
+            <div className="form-group">
+              <label>Aparelhos vinculados</label>
+              <p className="form-hint" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                Marque os aparelhos em uso por este paciente (apenas itens em estoque ou já vinculados a ele).
+              </p>
+              <div className="device-checklist">
+                {availableDevices.length === 0 ? (
+                  <span className="text-muted">Nenhum aparelho disponível para vincular.</span>
+                ) : (
+                  availableDevices.map((device) => (
+                    <label key={device.id} className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(device.id)}
+                        onChange={() => toggleAparelho(device.id)}
+                      />
+                      <span>
+                        {device.numeroPatrimonio} — {device.tipo}
+                        {device.status !== 'ESTOQUE' && (
+                          <span className="text-muted"> ({device.status})</span>
+                        )}
+                      </span>
+                    </label>
+                  ))
+                )}
               </div>
             </div>
 

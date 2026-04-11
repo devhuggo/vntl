@@ -2,21 +2,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pacientService } from '../../services/pacient.service';
 import { useState } from 'react';
 import PacientForm from './PacientForm';
-import type { Pacient, PacientStatus } from '../../types/pacient.types';
-import { PacientStatus as PacientStatusEnum } from '../../types/pacient.types';
+import type { Pacient } from '../../types/pacient.types';
+import { ContractType as ContractTypeEnum } from '../../types/pacient.types';
 
 const PacientList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingPacient, setEditingPacient] = useState<Pacient | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [contractFilter, setContractFilter] = useState<string>('all');
+  const [bairroFilter, setBairroFilter] = useState<string>('all');
 
   const queryClient = useQueryClient();
 
+  const { data: bairros = [] } = useQuery({
+    queryKey: ['patients', 'bairros'],
+    queryFn: () => pacientService.getNeighborhoods()
+  });
+
   const { data: patients = [], isLoading } = useQuery({
-    queryKey: ['patients', statusFilter],
-    queryFn: () => statusFilter === 'all' 
-      ? pacientService.getAll() 
-      : pacientService.getByStatus(statusFilter as PacientStatus)
+    queryKey: ['patients', contractFilter, bairroFilter],
+    queryFn: () =>
+      pacientService.getAll({
+        ...(contractFilter !== 'all' ? { tipoContrato: contractFilter } : {}),
+        ...(bairroFilter !== 'all' ? { bairro: bairroFilter } : {})
+      })
   });
 
   const deleteMutation = useMutation({
@@ -42,16 +50,6 @@ const PacientList = () => {
     setEditingPacient(null);
   };
 
-  const getStatusLabel = (status: PacientStatus) => {
-    const labels: Record<PacientStatus, string> = {
-      ATIVO: 'Ativo',
-      INATIVO: 'Inativo',
-      AGUARDANDO: 'Aguardando',
-      ALTA: 'Alta'
-    };
-    return labels[status];
-  };
-
   const getContractLabel = (type: string) => {
     const labels: Record<string, string> = {
       PREFEITURA: 'Prefeitura',
@@ -62,8 +60,10 @@ const PacientList = () => {
     return labels[type] || type;
   };
 
-  const formatCPF = (cpf: string) => {
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  const formatAparelhos = (patient: Pacient) => {
+    const list = patient.aparelhos;
+    if (!list?.length) return '—';
+    return list.map((a) => `${a.numeroPatrimonio} (${a.tipo})`).join(', ');
   };
 
   if (isLoading) return <div>Carregando...</div>;
@@ -77,27 +77,37 @@ const PacientList = () => {
         </button>
       </div>
 
-      <div className="filters">
-        <select 
-          value={statusFilter} 
-          onChange={(e) => setStatusFilter(e.target.value)}
+      <div className="filters filters-row">
+        <select
+          value={contractFilter}
+          onChange={(e) => setContractFilter(e.target.value)}
           className="filter-select"
+          aria-label="Filtrar por tipo de contrato"
         >
-          <option value="all">Todos os Status</option>
-          {Object.values(PacientStatusEnum).map(status => (
-            <option key={status} value={status}>
-              {getStatusLabel(status)}
+          <option value="all">Todos os contratos</option>
+          {Object.values(ContractTypeEnum).map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {getContractLabel(tipo)}
+            </option>
+          ))}
+        </select>
+        <select
+          value={bairroFilter}
+          onChange={(e) => setBairroFilter(e.target.value)}
+          className="filter-select"
+          aria-label="Filtrar por bairro"
+        >
+          <option value="all">Todos os bairros</option>
+          {bairros.map((b) => (
+            <option key={b} value={b}>
+              {b}
             </option>
           ))}
         </select>
       </div>
 
       {showForm && (
-        <PacientForm
-          pacient={editingPacient}
-          onClose={handleCloseForm}
-          onSuccess={handleCloseForm}
-        />
+        <PacientForm pacient={editingPacient} onClose={handleCloseForm} onSuccess={handleCloseForm} />
       )}
 
       <div className="table-container">
@@ -105,21 +115,18 @@ const PacientList = () => {
           <thead>
             <tr>
               <th>Nome</th>
-              <th>CPF</th>
               <th>Telefone</th>
               <th>Contrato</th>
-              <th>Status</th>
-              <th>Aparelho</th>
+              <th>Aparelhos</th>
               <th>Profissional</th>
               <th>Última Visita</th>
-              <th>Próxima Visita</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {patients.length === 0 ? (
               <tr>
-                <td colSpan={10} className="empty-state">
+                <td colSpan={7} className="empty-state">
                   Nenhum paciente encontrado
                 </td>
               </tr>
@@ -127,37 +134,24 @@ const PacientList = () => {
               patients.map((patient) => (
                 <tr key={patient.id}>
                   <td>{patient.nome}</td>
-                  <td>{formatCPF(patient.cpf)}</td>
                   <td>{patient.telefone || '-'}</td>
                   <td>{getContractLabel(patient.tipoContrato)}</td>
-                  <td>
-                    <span className={`status-badge status-${patient.status.toLowerCase()}`}>
-                      {getStatusLabel(patient.status)}
-                    </span>
-                  </td>
-                  <td>{patient.aparelhoTipo || '-'}</td>
+                  <td className="cell-aparelhos">{formatAparelhos(patient)}</td>
                   <td>{patient.profissionalResponsavelNome || '-'}</td>
                   <td>
-                    {patient.dataUltimaVisita 
+                    {patient.dataUltimaVisita
                       ? new Date(patient.dataUltimaVisita).toLocaleDateString('pt-BR')
-                      : '-'
-                    }
-                  </td>
-                  <td>
-                    {patient.dataProximaVisita 
-                      ? new Date(patient.dataProximaVisita).toLocaleDateString('pt-BR')
-                      : '-'
-                    }
+                      : '-'}
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button 
+                      <button
                         onClick={() => handleEdit(patient)}
                         className="btn btn-sm btn-secondary"
                       >
                         Editar
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(patient.id)}
                         className="btn btn-sm btn-danger"
                       >

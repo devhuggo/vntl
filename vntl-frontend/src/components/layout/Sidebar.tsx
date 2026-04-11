@@ -9,7 +9,6 @@ const Sidebar = () => {
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/devices', label: 'Aparelhos', icon: '🏥' },
     { path: '/patients', label: 'Pacientes', icon: '👥' },
-    { path: '/professionals', label: 'Profissionais', icon: '👨‍⚕️' },
     { path: '/visits', label: 'Visitas', icon: '📅' },
   ];
 

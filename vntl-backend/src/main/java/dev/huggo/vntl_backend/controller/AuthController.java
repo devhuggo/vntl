@@ -35,8 +35,14 @@ public class AuthController {
 
         User user = (User) authentication.getPrincipal();
         String token = jwtService.generateToken(user);
-        
-        LoginResponse response = new LoginResponse(token, request.getUsername(), request.getUsername(), "ROLE_ADMIN");
+
+        Long professionalId = user.getProfessional() != null ? user.getProfessional().getId() : null;
+        LoginResponse response = new LoginResponse(
+                token,
+                user.getUsername(),
+                user.getName(),
+                user.getRole(),
+                professionalId);
         return ResponseEntity.ok(response);
     }
 

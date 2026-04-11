@@ -6,8 +6,8 @@ import dev.huggo.vntl_backend.repository.DeviceRepository;
 import dev.huggo.vntl_backend.repository.PatientRepository;
 import dev.huggo.vntl_backend.service.dto.DeviceRequest;
 import dev.huggo.vntl_backend.service.dto.DeviceResponse;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,14 +63,13 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<DeviceResponse> listAll(String status) {
-        List<Device> devices;
-        if (status == null || status.isBlank()) {
-            devices = deviceRepository.findAll();
-        } else {
-            DeviceStatus parsed = DeviceStatus.valueOf(status.toUpperCase(Locale.ROOT));
-            devices = deviceRepository.findByStatus(parsed);
-        }
+    public List<DeviceResponse> listAll(
+            LocalDate purchaseFrom,
+            LocalDate purchaseTo,
+            LocalDate lastExchangeFrom,
+            LocalDate lastExchangeTo) {
+        List<Device> devices =
+                deviceRepository.findWithDateFilters(purchaseFrom, purchaseTo, lastExchangeFrom, lastExchangeTo);
         return devices.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
@@ -90,12 +89,13 @@ public class DeviceServiceImpl implements DeviceService {
         device.setModel(request.getModel());
         device.setSerialNumber(request.getSerialNumber());
         device.setPurchaseDate(request.getPurchaseDate());
+        device.setLastExchangeDate(request.getLastExchangeDate());
         device.setStatus(DeviceStatus.valueOf(request.getStatus()));
         device.setObservations(request.getObservations());
     }
 
     private DeviceResponse toResponse(Device device) {
-        var patient = patientRepository.findByDeviceId(device.getId());
+        var patient = patientRepository.findByLinkedDeviceId(device.getId());
         return DeviceResponse.builder()
                 .id(device.getId())
                 .assetNumber(device.getAssetNumber())
@@ -104,6 +104,7 @@ public class DeviceServiceImpl implements DeviceService {
                 .model(device.getModel())
                 .serialNumber(device.getSerialNumber())
                 .purchaseDate(device.getPurchaseDate())
+                .lastExchangeDate(device.getLastExchangeDate())
                 .status(device.getStatus().name())
                 .patientId(patient.map(p -> p.getId()).orElse(null))
                 .patientName(patient.map(p -> p.getName()).orElse(null))

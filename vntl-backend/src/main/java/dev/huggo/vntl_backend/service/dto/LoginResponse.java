@@ -10,4 +10,6 @@ public class LoginResponse {
     private String username;
     private String nome;
     private String role;
+    /** ID do profissional vinculado ao usuário (MVP: um profissional por conta). */
+    private Long professionalId;
 }

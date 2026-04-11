@@ -40,7 +40,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (credentials: LoginRequest) => {
     const response = await authService.login(credentials);
-    setUser({ username: response.username, nome: response.nome, role: response.role });
+    setUser({
+      username: response.username,
+      nome: response.nome,
+      role: response.role,
+      professionalId: response.professionalId ?? null
+    });
   };
 
   const logout = () => {

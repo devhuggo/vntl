@@ -2,6 +2,7 @@ package dev.huggo.vntl_backend.service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.Builder;
 import lombok.Value;
 
@@ -66,14 +67,8 @@ public class PatientResponse {
     @JsonProperty("dataProximaVisita")
     LocalDate nextVisitDate;
 
-    @JsonProperty("aparelhoId")
-    Long deviceId;
-
-    @JsonProperty("aparelhoTipo")
-    String deviceType;
-
-    @JsonProperty("aparelhoNumeroPatrimonio")
-    String deviceAssetNumber;
+    @JsonProperty("aparelhos")
+    List<PatientDeviceItem> devices;
 
     @JsonProperty("profissionalResponsavelId")
     Long professionalResponsibleId;

@@ -30,6 +30,9 @@ public class DeviceRequest {
     @JsonProperty("dataCompra")
     private LocalDate purchaseDate;
 
+    @JsonProperty("dataUltimaTroca")
+    private LocalDate lastExchangeDate;
+
     @NotBlank
     @JsonProperty("status")
     private String status;
